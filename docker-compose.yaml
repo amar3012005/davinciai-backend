@@ -17,12 +17,12 @@ services:
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
     labels:
       - "coolify.managed=true"
-      # Expose Backend (API)
-      - "traefik.enable=true"
-      - "traefik.http.routers.davinciai-backend.rule=Host(`api.enterprise.davinciai.eu`)"
-      - "traefik.http.routers.davinciai-backend.entrypoints=http,https"
-      - "traefik.http.routers.davinciai-backend.tls.certresolver=letsencrypt"
-      - "traefik.http.services.davinciai-backend.loadbalancer.server.port=8000"
+    ports:
+      - "8445:8000"
+    volumes:
+      - "/etc/letsencrypt/live/api.enterprise.davinciai.eu/fullchain.pem:/certs/fullchain.pem"
+      - "/etc/letsencrypt/live/api.enterprise.davinciai.eu/privkey.pem:/certs/privkey.pem"
+    command: "uvicorn app.main:app --host 0.0.0.0 --port 8000 --ssl-keyfile /certs/privkey.pem --ssl-certfile /certs/fullchain.pem"
     networks:
       - coolify
     restart: unless-stopped
