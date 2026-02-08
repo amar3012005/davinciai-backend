@@ -99,7 +99,20 @@ async def get_analytics(
     token: TokenPayload = Depends(get_token_payload),
     db: AsyncSession = Depends(get_db),
 ):
-    """Get aggregated analytics from real database data."""
+    """Get aggregated analytics from real database data. Cached for 60s."""
+    from app.database.redis import get_redis
+    import json
+    
+    # Try Cache
+    cache_key = f"metrics:{token.tenant_id}:analytics:{datetime.utcnow().date()}:{agent_id or 'all'}"
+    redis = await get_redis()
+    
+    cached_data = await redis.get(cache_key)
+    if cached_data:
+        try:
+            return json.loads(cached_data)
+        except Exception:
+            pass # Invalid cache, fall through to DB
     today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
 
     # Base filter: tenant isolation + today's data
@@ -209,7 +222,7 @@ async def get_analytics(
     active_result = await db.execute(active_query)
     active_calls = active_result.scalar() or 0
 
-    return AnalyticsResponse(
+    response = AnalyticsResponse(
         total_calls_today=total_calls,
         total_minutes_today=total_seconds // 60,
         total_cost_today=round(total_cost, 2),
@@ -219,6 +232,11 @@ async def get_analytics(
         call_volume_trend=call_volume_trend,
         cost_breakdown=cost_breakdown,
     )
+    
+    # Cache result
+    await redis.set(cache_key, response.model_dump_json(), ex=60)
+    
+    return response
 
 
 @router.get("/realtime", response_model=List[LiveCallResponse])
