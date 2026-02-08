@@ -19,10 +19,10 @@ services:
       - "coolify.managed=true"
       # Expose Backend (API)
       - "traefik.enable=true"
-      - "traefik.http.routers.backend.rule=Host(`api.enterprise.davinciai.eu`)"
-      - "traefik.http.routers.backend.entrypoints=http,https"
-      - "traefik.http.routers.backend.tls.certresolver=letsencrypt"
-      - "traefik.http.services.backend.loadbalancer.server.port=8000"
+      - "traefik.http.routers.davinciai-backend.rule=Host(`api.enterprise.davinciai.eu`)"
+      - "traefik.http.routers.davinciai-backend.entrypoints=http,https"
+      - "traefik.http.routers.davinciai-backend.tls.certresolver=letsencrypt"
+      - "traefik.http.services.davinciai-backend.loadbalancer.server.port=8000"
     networks:
       - coolify
     restart: unless-stopped
