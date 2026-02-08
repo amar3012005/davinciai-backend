@@ -1,0 +1,95 @@
+services:
+  # Managed by Coolify (Backend API)
+  backend:
+    build:
+      context: ./davinciai-backend
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:?Username required}:${POSTGRES_PASSWORD:?Password required}@postgres:5432/${POSTGRES_DB:?DB name required}
+      REDIS_URL: redis://redis:6379/0
+      JWT_SECRET: ${JWT_SECRET:?JWT Secret required}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://enterprise.davinciai.eu,https://demo.davinciai.eu}
+      ENVIRONMENT: production
+      DEBUG: "false"
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    labels:
+      - "coolify.managed=true"
+      # Expose Backend (API)
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=Host(`api.enterprise.davinciai.eu`)"
+      - "traefik.http.routers.backend.entrypoints=websecure"
+      - "traefik.http.routers.backend.tls.certresolver=le"
+      - "traefik.http.services.backend.loadbalancer.server.port=8000"
+    networks:
+      - davinciai
+    restart: unless-stopped
+
+  # Managed by Coolify (Database)
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-davinciai}
+      POSTGRES_USER: ${POSTGRES_USER:-davinciai}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Password required}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-davinciai} -d ${POSTGRES_DB:-davinciai}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - davinciai
+    restart: unless-stopped
+    labels:
+      - "coolify.managed=true"
+
+  # Managed by Coolify (Redis)
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - davinciai
+    restart: unless-stopped
+    labels:
+      - "coolify.managed=true"
+
+  # Frontend (Next.js) - Deployed on Vercel by user, but included for completeness if migrated
+  # frontend:
+  #   build:
+  #     context: ./davinciai-frontend
+  #     dockerfile: Dockerfile
+  #     args:
+  #       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://api.enterprise.davinciai.eu}
+  #   labels:
+  #     - "traefik.enable=true"
+  #     - "traefik.http.routers.frontend.rule=Host(`enterprise.davinciai.eu`)"
+  #     - "traefik.http.routers.frontend.entrypoints=websecure"
+  #     - "traefik.http.routers.frontend.tls.certresolver=le"
+  #     - "traefik.http.services.frontend.loadbalancer.server.port=3000"
+  #   networks:
+  #     - davinciai
+  #   restart: unless-stopped
+
+volumes:
+  postgres-data:
+  redis-data:
+
+networks:
+  davinciai:
+    driver: bridge
