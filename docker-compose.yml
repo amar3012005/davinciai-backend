@@ -2,7 +2,7 @@ services:
   # Managed by Coolify (Backend API)
   backend:
     build:
-      context: ./davinciai-backend
+      context: .
       dockerfile: Dockerfile
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:?Username required}:${POSTGRES_PASSWORD:?Password required}@postgres:5432/${POSTGRES_DB:?DB name required}
