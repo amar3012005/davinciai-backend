@@ -18,7 +18,7 @@ services:
     labels:
       - "coolify.managed=true"
     ports:
-      - "8445:8000"
+      - "8450:8000"
     volumes:
       - "/etc/letsencrypt/live/api.enterprise.davinciai.eu/fullchain.pem:/certs/fullchain.pem"
       - "/etc/letsencrypt/live/api.enterprise.davinciai.eu/privkey.pem:/certs/privkey.pem"
