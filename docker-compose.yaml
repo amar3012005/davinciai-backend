@@ -29,6 +29,7 @@ services:
       - "traefik.http.services.backend.loadbalancer.server.port=8000"
     networks:
       - davinciai
+      - coolify
     restart: unless-stopped
 
   # Managed by Coolify (Database)
@@ -93,3 +94,5 @@ volumes:
 networks:
   davinciai:
     driver: bridge
+  coolify:
+    external: true
