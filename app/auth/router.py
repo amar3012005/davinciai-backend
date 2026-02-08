@@ -15,7 +15,7 @@ from app.auth.dependencies import get_current_user as get_current_user_dep
 router = APIRouter()
 
 # Password hashing setup
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
 # ============= REQUEST/RESPONSE MODELS =============
 
