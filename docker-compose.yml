@@ -1,0 +1,32 @@
+services:
+  # Managed by Coolify (Backend API)
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      # These must be set in Coolify Environment Variables
+      DATABASE_URL: ${DATABASE_URL:?Database URL required}
+      REDIS_URL: ${REDIS_URL:?Redis URL required}
+      JWT_SECRET: ${JWT_SECRET:?JWT Secret required}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://enterprise.davinciai.eu,https://demo.davinciai.eu}
+      ENVIRONMENT: production
+      DEBUG: "false"
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+    labels:
+      - "coolify.managed=true"
+      # Expose Backend (API)
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=Host(`api.enterprise.davinciai.eu`)"
+      - "traefik.http.routers.backend.entrypoints=https"
+      - "traefik.http.routers.backend.tls.certresolver=letsencrypt"
+      - "traefik.http.services.backend.loadbalancer.server.port=8000"
+    networks:
+      - coolify
+    restart: unless-stopped
+
+networks:
+  coolify:
+    external: true
