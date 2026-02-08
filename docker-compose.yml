@@ -24,8 +24,8 @@ services:
       # Expose Backend (API)
       - "traefik.enable=true"
       - "traefik.http.routers.backend.rule=Host(`api.enterprise.davinciai.eu`)"
-      - "traefik.http.routers.backend.entrypoints=websecure"
-      - "traefik.http.routers.backend.tls.certresolver=le"
+      - "traefik.http.routers.backend.entrypoints=https"
+      - "traefik.http.routers.backend.tls.certresolver=letsencrypt"
       - "traefik.http.services.backend.loadbalancer.server.port=8000"
     networks:
       - davinciai
