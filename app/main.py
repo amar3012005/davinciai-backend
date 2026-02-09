@@ -27,6 +27,7 @@ from app.metrics.router import router as metrics_router
 from app.wallet.router import router as wallet_router
 from app.webhooks.cartesia import router as webhooks_router
 from app.webhooks.session import router as session_webhook_router
+from app.webhooks.voice_stream import router as voice_stream_router
 
 # Include database setup
 from app.database import Base, engine
@@ -107,6 +108,7 @@ app.include_router(metrics_router, prefix="/api/metrics", tags=["Metrics"])
 app.include_router(wallet_router, prefix="/api/wallet", tags=["Wallet & Billing"])
 app.include_router(webhooks_router, prefix="/api/webhooks", tags=["Webhooks"])
 app.include_router(session_webhook_router, prefix="/api/webhooks", tags=["Session Webhooks"])
+app.include_router(voice_stream_router, prefix="", tags=["Demo Voice Stream"])
 
 
 # ============= HEALTH & ROOT =============

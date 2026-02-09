@@ -134,7 +134,7 @@ class BillingRules:
         avg_cost = sum(t.price_euros for t in self.pricing_tiers) / len(self.pricing_tiers)
         
         if avg_cost > 0:
-            return int(balance_euros / avg_cost)
+            return int(float(balance_euros) / avg_cost)
         
         return 0
     
