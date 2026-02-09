@@ -64,7 +64,7 @@ async def seed_agent():
             "avatar_url": "https://api.dicebear.com/7.x/bottts/svg?seed=demo-agent",
             "voice_sample_url": "https://storage.googleapis.com/davinci-samples/demo-voice.mp3",
             "location": "Frankfurt, DE (EU-West)",
-            "websocket_url": "wss://demo.davinciai.eu:8443/ws",
+            "websocket_url": "wss://demo.davinciai.eu:8443/",
             "phone_number": "+49-123-456789",
             "language_primary": "English",
             "language_secondary": "German",
