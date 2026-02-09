@@ -5,7 +5,7 @@ Real database queries for call metrics, analytics, and real-time data.
 
 from fastapi import APIRouter, Query, Depends, status
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
