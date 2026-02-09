@@ -118,6 +118,18 @@ class CallLog(Base):
     ttfc_ms = Column(Integer, nullable=True)
     compression_ratio = Column(Float, nullable=True)
     sentiment_score = Column(Float, nullable=True)
+    
+    # --- Advanced Metrics ---
+    frustration_velocity = Column(String, nullable=True) # STABLE, RISING, CRITICAL_DEGRADATION
+    agent_iq = Column(Float, nullable=True) # 0.0 to 1.0
+    avg_sentiment = Column(Float, nullable=True) # -1.0 to 1.0
+    correction_count = Column(Integer, default=0)
+    
+    # --- Business Signals ---
+    is_churn_risk = Column(Boolean, default=False)
+    is_hot_lead = Column(Boolean, default=False)
+    priority_level = Column(String, default="NORMAL") # LOW, NORMAL, HIGH, URGENT
+    
     cost_euros = Column(Numeric(10, 4), default=0.0)
 
     agent = relationship("Agent", back_populates="calls")

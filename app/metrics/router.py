@@ -30,6 +30,17 @@ class CallLogResponse(BaseModel):
     start_time: str
     sentiment_score: Optional[float] = None
     ttft_ms: Optional[int] = None
+    
+    # Advanced Metrics
+    frustration_velocity: Optional[str] = None
+    agent_iq: Optional[float] = None
+    avg_sentiment: Optional[float] = None
+    correction_count: int = 0
+    
+    # Business Signals
+    is_churn_risk: bool = False
+    is_hot_lead: bool = False
+    priority_level: str = "NORMAL"
 
 class AnalyticsResponse(BaseModel):
     total_calls_today: int
@@ -38,8 +49,13 @@ class AnalyticsResponse(BaseModel):
     success_rate: float
     avg_call_duration: int
     active_calls: int
-    call_volume_trend: List[dict]
-    cost_breakdown: dict
+    call_volume_trend: List[Dict[str, Any]]
+    cost_breakdown: Dict[str, Dict[str, Any]]
+    
+    # Intelligence Metrics
+    leads_today: int = 0
+    churn_risks_today: int = 0
+    avg_agent_iq: float = 0.0
 
 class LiveCallResponse(BaseModel):
     call_id: str
@@ -88,6 +104,13 @@ async def get_call_logs(
             start_time=log.start_time.isoformat() if log.start_time else "",
             sentiment_score=log.sentiment_score,
             ttft_ms=log.ttft_ms,
+            frustration_velocity=log.frustration_velocity,
+            agent_iq=log.agent_iq,
+            avg_sentiment=log.avg_sentiment,
+            correction_count=log.correction_count or 0,
+            is_churn_risk=log.is_churn_risk or False,
+            is_hot_lead=log.is_hot_lead or False,
+            priority_level=log.priority_level or "NORMAL",
         )
         for log in logs
     ]
@@ -139,19 +162,23 @@ async def get_analytics(
                 0.0,
             ).label("success_rate"),
             func.coalesce(func.avg(CallLog.duration_seconds), 0).label("avg_duration"),
+            # New Intelligence Aggregations
+            func.count(CallLog.id).filter(CallLog.is_hot_lead == True).label("leads_today"),
+            func.count(CallLog.id).filter(CallLog.is_churn_risk == True).label("churn_risks_today"),
+            func.coalesce(func.avg(CallLog.agent_iq), 0).label("avg_agent_iq"),
         )
         .join(Agent, CallLog.agent_id == Agent.agent_id)
         .where(base_filter)
     )
 
     result = await db.execute(agg_query)
-    row = result.first()
+    agg_res = result.first()
 
-    total_calls = row.total_calls if row else 0
-    total_seconds = int(row.total_seconds) if row else 0
-    total_cost = float(row.total_cost) if row else 0.0
-    success_rate = float(row.success_rate) if row else 0.0
-    avg_duration = int(row.avg_duration) if row else 0
+    total_calls = agg_res.total_calls if agg_res else 0
+    total_seconds = int(agg_res.total_seconds) if agg_res else 0
+    total_cost = float(agg_res.total_cost) if agg_res else 0.0
+    success_rate = float(agg_res.success_rate) if agg_res else 0.0
+    avg_duration = int(agg_res.avg_duration) if agg_res else 0
 
     # Hourly call volume trend
     hourly_query = (
@@ -231,6 +258,9 @@ async def get_analytics(
         active_calls=active_calls,
         call_volume_trend=call_volume_trend,
         cost_breakdown=cost_breakdown,
+        leads_today=agg_res.leads_today or 0,
+        churn_risks_today=agg_res.churn_risks_today or 0,
+        avg_agent_iq=float(agg_res.avg_agent_iq or 0),
     )
     
     # Cache result

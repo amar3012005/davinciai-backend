@@ -141,12 +141,34 @@ async def ingest_session_report(
 
     # 3. Extract analysis/signals
     sentiment_score = None
+    frustration_velocity = None
+    agent_iq = None
+    avg_sentiment = None
+    correction_count = 0
+    is_churn_risk = False
+    is_hot_lead = False
+    priority_level = "NORMAL"
+
     if payload.analysis and isinstance(payload.analysis, dict):
         logger.info(f"Processing analysis report: {list(payload.analysis.keys())}")
+        
+        # Extract Metrics
+        metrics_payload = payload.analysis.get("metrics", {})
+        if isinstance(metrics_payload, dict):
+            frustration_velocity = metrics_payload.get("frustration_velocity")
+            agent_iq = metrics_payload.get("agent_iq")
+            avg_sentiment = metrics_payload.get("avg_sentiment")
+            correction_count = metrics_payload.get("correction_count", 0)
+
+        # Extract Business Signals
         business_signals = payload.analysis.get("business_signals", {})
         if isinstance(business_signals, dict):
             sentiment_score = business_signals.get("sentiment_score")
-            logger.info(f"Extracted sentiment score: {sentiment_score}")
+            is_churn_risk = business_signals.get("is_churn_risk", False)
+            is_hot_lead = business_signals.get("is_hot_lead", False)
+            priority_level = business_signals.get("priority_level", "NORMAL")
+            
+            logger.info(f"Extracted signals: sentiment={sentiment_score}, churn={is_churn_risk}, lead={is_hot_lead}")
 
     # 4. Parse timestamps
     start_time = None
@@ -175,6 +197,13 @@ async def ingest_session_report(
         ttft_ms=int(payload.avg_ttft_ms) if payload.avg_ttft_ms else None,
         ttfc_ms=int(payload.avg_ttfc_ms) if payload.avg_ttfc_ms else None,
         sentiment_score=sentiment_score,
+        frustration_velocity=frustration_velocity,
+        agent_iq=agent_iq,
+        avg_sentiment=avg_sentiment,
+        correction_count=correction_count,
+        is_churn_risk=is_churn_risk,
+        is_hot_lead=is_hot_lead,
+        priority_level=priority_level,
         cost_euros=cost,
     )
     db.add(call_log)
