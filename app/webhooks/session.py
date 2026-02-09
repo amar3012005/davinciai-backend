@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from typing import Optional
 from decimal import Decimal
 from datetime import datetime
+from sqlalchemy import and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.exc import IntegrityError
@@ -56,7 +57,43 @@ async def ingest_session_report(
         logger.info(f"Session {payload.session_id}: already ingested, skipping")
         return {"status": "duplicate", "session_id": payload.session_id}
 
-    # 1. Resolve agent
+    # Detailed logging of incoming payload
+    logger.info(f"Incoming session report for {payload.session_id}")
+    logger.debug(f"Payload: {payload.model_dump_json()}")
+
+    # 1. Resolve agent & Extract JWT context if present
+    user_id = payload.user_id
+    jwt_claims = {}
+    
+    # Check if user_id is a JWT (contains at least one dot and is relatively long)
+    if user_id and "." in user_id and len(user_id) > 50:
+        try:
+            import json
+            import base64
+            # Decode JWT payload (middle part)
+            parts = user_id.split(".")
+            if len(parts) >= 2:
+                payload_b64 = parts[1]
+                # Pad if necessary
+                payload_b64 += "=" * ((4 - len(payload_b64) % 4) % 4)
+                decoded = base64.b64decode(payload_b64).decode("utf-8")
+                jwt_claims = json.loads(decoded)
+                
+                # Extract real sub (user_id) and tenant_id
+                real_user_id = jwt_claims.get("sub")
+                real_tenant_id = jwt_claims.get("tenant_id")
+                
+                if real_user_id:
+                    logger.info(f"Decoded user_id from JWT: {real_user_id}")
+                    user_id = real_user_id
+                if real_tenant_id:
+                    logger.info(f"Decoded tenant_id from JWT: {real_tenant_id}")
+                    # Prioritize tenant_id from JWT if payload doesn't have it
+                    if not payload.tenant_id:
+                        payload.tenant_id = real_tenant_id
+        except Exception as e:
+            logger.warning(f"Failed to decode JWT user_id: {e}")
+
     agent = None
 
     if payload.agent_id:
@@ -66,10 +103,24 @@ async def ingest_session_report(
         agent = result.scalars().first()
 
     if not agent and payload.agent_name:
-        result = await db.execute(
-            select(Agent).where(Agent.agent_name == payload.agent_name)
-        )
-        agent = result.scalars().first()
+        # If tenant_id is known, filter agent by name AND tenant
+        if payload.tenant_id:
+            result = await db.execute(
+                select(Agent).where(
+                    and_(
+                        Agent.agent_name == payload.agent_name,
+                        Agent.tenant_id == payload.tenant_id
+                    )
+                )
+            )
+            agent = result.scalars().first()
+        
+        # Fallback to name only if still not found
+        if not agent:
+            result = await db.execute(
+                select(Agent).where(Agent.agent_name == payload.agent_name)
+            )
+            agent = result.scalars().first()
 
     if not agent:
         if payload.tenant_id:
@@ -79,29 +130,34 @@ async def ingest_session_report(
             agent = result.scalars().first()
 
     if not agent:
-        logger.warning(f"Session {payload.session_id}: could not resolve agent (agent_id={payload.agent_id}, agent_name={payload.agent_name})")
-        raise HTTPException(status_code=404, detail="Agent not found for this session")
+        logger.warning(f"Session {payload.session_id}: could not resolve agent (agent_id={payload.agent_id}, agent_name={payload.agent_name}, tenant_id={payload.tenant_id})")
+        raise HTTPException(status_code=404, detail=f"Agent not found for session {payload.session_id}")
+
+    logger.info(f"Resolved agent: {agent.agent_name} (ID: {agent.agent_id}) for tenant: {agent.tenant_id}")
 
     # 2. Calculate cost
     duration_secs = int(payload.duration_seconds)
     cost = Decimal(str(BILLING_RULES.calculate_call_cost(duration_secs)))
 
-    # 3. Extract sentiment from analysis
+    # 3. Extract analysis/signals
     sentiment_score = None
     if payload.analysis and isinstance(payload.analysis, dict):
+        logger.info(f"Processing analysis report: {list(payload.analysis.keys())}")
         business_signals = payload.analysis.get("business_signals", {})
         if isinstance(business_signals, dict):
             sentiment_score = business_signals.get("sentiment_score")
+            logger.info(f"Extracted sentiment score: {sentiment_score}")
 
     # 4. Parse timestamps
     start_time = None
     end_time = None
     try:
         if payload.start_time:
-            start_time = datetime.fromisoformat(str(payload.start_time))
+            start_time = datetime.fromisoformat(str(payload.start_time).replace('Z', '+00:00'))
         if payload.end_time:
-            end_time = datetime.fromisoformat(str(payload.end_time))
-    except (ValueError, TypeError):
+            end_time = datetime.fromisoformat(str(payload.end_time).replace('Z', '+00:00'))
+    except (ValueError, TypeError) as e:
+        logger.warning(f"Timestamp parsing error: {e}. Falling back to now.")
         start_time = datetime.utcnow()
 
     if not start_time:
@@ -115,7 +171,7 @@ async def ingest_session_report(
         end_time=end_time,
         duration_seconds=duration_secs,
         status=payload.status,
-        caller_id=payload.caller_id or payload.user_id,
+        caller_id=payload.caller_id or user_id,
         ttft_ms=int(payload.avg_ttft_ms) if payload.avg_ttft_ms else None,
         ttfc_ms=int(payload.avg_ttfc_ms) if payload.avg_ttfc_ms else None,
         sentiment_score=sentiment_score,
