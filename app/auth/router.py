@@ -9,7 +9,7 @@ from sqlalchemy.future import select
 from passlib.context import CryptContext
 
 from app.config import settings
-from app.database import get_db, User, Tenant
+from app.database import get_db, User, Tenant, Agent, Wallet
 from app.auth.dependencies import get_current_user as get_current_user_dep
 
 router = APIRouter()
@@ -26,6 +26,7 @@ class RegisterRequest(BaseModel):
     full_name: str
     phone_number: Optional[str] = None
     address: Optional[str] = None
+    agent_websocket_url: Optional[str] = None  # e.g. wss://demo.davinciai.eu:8443
 
 class LoginRequest(BaseModel):
     email: EmailStr
@@ -98,13 +99,35 @@ async def register(request: RegisterRequest, db: AsyncSession = Depends(get_db))
         role="admin"
     )
     db.add(new_user)
-    
-    # Flush to get objects in session (ID is already set manually)
+
+    # Create default wallet
+    wallet_id = str(uuid.uuid4())
+    db.add(Wallet(
+        wallet_id=wallet_id,
+        tenant_id=tenant_id,
+        balance=0.0,
+        currency="EUR",
+    ))
+
+    # Create default voice agent
+    # Use the provided WSS URL or derive from subdomain
+    agent_id = str(uuid.uuid4())
+    ws_url = request.agent_websocket_url or f"wss://{subdomain}.davinciai.eu:8443"
+    db.add(Agent(
+        agent_id=agent_id,
+        tenant_id=tenant_id,
+        wallet_id=wallet_id,
+        agent_name=f"{request.organization_name} Agent",
+        agent_description=f"Default voice agent for {request.organization_name}",
+        websocket_url=ws_url,
+        language_primary="en",
+        is_active=True,
+    ))
+
     await db.flush()
-    
-    # Create access token
+
     access_token = create_access_token(user_id, tenant_id, "admin")
-    
+
     return AuthResponse(
         access_token=access_token,
         user={
@@ -112,7 +135,7 @@ async def register(request: RegisterRequest, db: AsyncSession = Depends(get_db))
             "email": request.email,
             "full_name": request.full_name,
             "role": "admin",
-            "login_mode": "enterprise"  # New registrations default to enterprise
+            "login_mode": "enterprise"
         },
         tenant={
             "tenant_id": tenant_id,
