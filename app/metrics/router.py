@@ -65,7 +65,46 @@ class LiveCallResponse(BaseModel):
     status: str
 
 
+class CallLogCreate(BaseModel):
+    call_id: str
+    agent_id: str
+    duration_seconds: int
+    status: str
+    ttft_ms: Optional[int] = None
+    ttfc_ms: Optional[int] = None
+    compression_ratio: Optional[float] = None
+    cost_euros: Optional[float] = 0.0
+
 # ============= ROUTES =============
+
+@router.post("", status_code=status.HTTP_201_CREATED)
+async def create_call_log(
+    payload: CallLogCreate,
+    token: TokenPayload = Depends(get_token_payload),
+    db: AsyncSession = Depends(get_db),
+):
+    """Create a new call log entry (for client-side reporting)."""
+    # Check if call already exists
+    existing = await db.get(CallLog, payload.call_id)
+    if existing:
+        return {"status": "skipped", "reason": "duplicate"}
+
+    # Create new log
+    new_log = CallLog(
+        id=payload.call_id,
+        agent_id=payload.agent_id,
+        duration_seconds=payload.duration_seconds,
+        status=payload.status,
+        ttft_ms=payload.ttft_ms,
+        ttfc_ms=payload.ttfc_ms,
+        compression_ratio=payload.compression_ratio,
+        cost_euros=payload.cost_euros,
+        start_time=datetime.utcnow() - timedelta(seconds=payload.duration_seconds),
+        end_time=datetime.utcnow()
+    )
+    db.add(new_log)
+    await db.commit()
+    return {"status": "created", "call_id": new_log.id}
 
 @router.get("/calls", response_model=List[CallLogResponse])
 async def get_call_logs(
