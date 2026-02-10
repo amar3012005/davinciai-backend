@@ -307,3 +307,30 @@ async def get_realtime_calls(
         )
         for call in calls
     ]
+
+
+@router.get("/migrate-schema")
+async def migrate_schema(db: AsyncSession = Depends(get_db)):
+    """Temporary endpoint to update database schema."""
+    from sqlalchemy import text
+    
+    statements = [
+        "ALTER TABLE call_logs ADD COLUMN IF NOT EXISTS frustration_velocity VARCHAR",
+        "ALTER TABLE call_logs ADD COLUMN IF NOT EXISTS agent_iq FLOAT",
+        "ALTER TABLE call_logs ADD COLUMN IF NOT EXISTS avg_sentiment FLOAT",
+        "ALTER TABLE call_logs ADD COLUMN IF NOT EXISTS correction_count INTEGER DEFAULT 0",
+        "ALTER TABLE call_logs ADD COLUMN IF NOT EXISTS is_churn_risk BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE call_logs ADD COLUMN IF NOT EXISTS is_hot_lead BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE call_logs ADD COLUMN IF NOT EXISTS priority_level VARCHAR DEFAULT 'NORMAL'",
+    ]
+    
+    results = []
+    for stmt in statements:
+        try:
+            await db.execute(text(stmt))
+            results.append(f"Executed: {stmt}")
+        except Exception as e:
+            results.append(f"Failed: {stmt} Error: {str(e)}")
+            
+    await db.commit()
+    return {"status": "success", "results": results}
