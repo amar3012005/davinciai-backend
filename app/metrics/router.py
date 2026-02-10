@@ -303,7 +303,7 @@ async def get_analytics(
     )
     
     # Cache result
-    await redis.set(cache_key, response.model_dump_json(), ex=60)
+    await redis.set(cache_key, response.model_dump_json(), ex=5)
     
     return response
 
