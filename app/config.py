@@ -7,8 +7,8 @@ class Settings(BaseSettings):
     """Application settings loaded from environment variables"""
     
     # Database
-    DATABASE_URL: str = "postgresql://davinciai:password@localhost:5432/davinciai"
-    REDIS_URL: str = "redis://localhost:6379"
+    DATABASE_URL: str = "postgresql+asyncpg://davinciai_user:3012005%40Amarsai@kw8c88c8o0kcg8wg8kw8gwk4:5432/postgres"
+    REDIS_URL: str = "redis://davinci_user:3012005%40Amarsai@rgw004os4ggwokkg88c4g04w:6379/0"
     
     # Cartesia
     CARTESIA_API_KEY: str = ""

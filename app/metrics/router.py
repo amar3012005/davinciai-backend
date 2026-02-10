@@ -169,12 +169,13 @@ async def get_analytics(
     cache_key = f"metrics:{token.tenant_id}:analytics:{datetime.utcnow().date()}:{agent_id or 'all'}"
     redis = await get_redis()
     
-    cached_data = await redis.get(cache_key)
-    if cached_data:
-        try:
+    try:
+        cached_data = await redis.get(cache_key)
+        if cached_data:
             return json.loads(cached_data)
-        except Exception:
-            pass # Invalid cache, fall through to DB
+    except Exception as e:
+        logger.warning(f"Redis cache miss/error: {e}")
+        # Proceed to DB on cache failure
     today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
 
     # Base filter: tenant isolation + today's data
@@ -303,7 +304,10 @@ async def get_analytics(
     )
     
     # Cache result
-    await redis.set(cache_key, response.model_dump_json(), ex=5)
+    try:
+        await redis.set(cache_key, response.model_dump_json(), ex=5)
+    except Exception as e:
+        logger.warning(f"Failed to cache analytics: {e}")
     
     return response
 
