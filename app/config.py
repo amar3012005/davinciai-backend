@@ -19,8 +19,8 @@ class Settings(BaseSettings):
     JWT_EXPIRATION_HOURS: int = 24
     
     # Frontend
-    FRONTEND_URL: str = "http://localhost:3000"
-    ALLOWED_ORIGINS: str = "http://localhost:3000,https://dashboard.davinciai.eu"
+    FRONTEND_URL: str = "https://enterprise.davinciai.eu"
+    ALLOWED_ORIGINS: str = "https://enterprise.davinciai.eu,https://demo.davinciai.eu,http://localhost:3000"
     
     @property
     def allowed_origins_list(self) -> list[str]:
