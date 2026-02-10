@@ -1,0 +1,37 @@
+services:
+  # Managed by Coolify (Backend API)
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      # These must be set in Coolify Environment Variables
+      DATABASE_URL: ${DATABASE_URL:?Database URL required}
+      REDIS_URL: ${REDIS_URL:?Redis URL required}
+      JWT_SECRET: ${JWT_SECRET:?JWT Secret required}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://enterprise.davinciai.eu,https://demo.davinciai.eu}
+      ENVIRONMENT: production
+      DEBUG: "false"
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+    labels:
+      - "coolify.managed=true"
+    ports:
+      - "8450:8000"
+    volumes:
+      - "/etc/letsencrypt/live/api.enterprise.davinciai.eu/fullchain.pem:/certs/fullchain.pem"
+      - "/etc/letsencrypt/live/api.enterprise.davinciai.eu/privkey.pem:/certs/privkey.pem"
+    command: "uvicorn app.main:app --host 0.0.0.0 --port 8000 --ssl-keyfile /certs/privkey.pem --ssl-certfile /certs/fullchain.pem"
+    healthcheck:
+      test: [ "CMD", "curl", "-k", "-f", "https://localhost:8000/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - coolify
+    restart: unless-stopped
+
+networks:
+  coolify:
+    external: true
