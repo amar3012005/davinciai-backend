@@ -140,7 +140,7 @@ GET /api/agents/{agent_id}
 GET /api/metrics/calls?agent_id={agent_id}&limit=20
 ```
 
-**Response**:
+**Response**
 ```json
 [
   {
